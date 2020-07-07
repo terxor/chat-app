@@ -24,6 +24,7 @@ public class MessageService implements Runnable{
                 break;
             }
         }
+        sendToAll(new Message(MessageType.CLIENT_DISCONNECTED, client.getName(), ""));
         System.err.println("Someone dropped off");
     }
 

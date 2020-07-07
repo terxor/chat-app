@@ -7,6 +7,7 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.*;
 import java.util.stream.Collectors;
 
 public class Server {
@@ -39,25 +40,54 @@ public class Server {
                 ObjectInputStream inputStream = new ObjectInputStream(socket.getInputStream());
 
                 Client newClient = new Client(socket, outputStream, inputStream);
-                Thread thread = new Thread(new MessageService(newClient, clients));
 
-                synchronized (clients) {
-                    List<Client> activeClients = clients.stream().filter(Client::isConnected).collect(Collectors.toList());
-                    clients.clear();
-                    clients.addAll(activeClients);
-                    clients.add(newClient);
+                /* First know the identity of client */
+                String newClientName = getNewClientName(newClient);
+
+                if (newClientName == null) {
+                    socket.close();
+                } else {
+                    newClient.setName(newClientName);
+                    Thread thread = new Thread(new MessageService(newClient, clients));
+
+                    synchronized (clients) {
+                        List<Client> activeClients = clients.stream().filter(Client::isConnected).collect(Collectors.toList());
+                        clients.clear();
+                        clients.addAll(activeClients);
+                        clients.add(newClient);
+                    }
+
+                    threads = threads.stream().filter(Thread::isAlive).collect(Collectors.toList());
+                    threads.add(thread);
+                    thread.start();
+
+                    Message message = new Message(MessageType.CLIENT_CONNECTED, newClientName, "");
+                    clients.forEach(client -> client.sendMessage(message));
                 }
-
-                threads = threads.stream().filter(Thread::isAlive).collect(Collectors.toList());
-                threads.add(thread);
-                thread.start();
-
-                newClient.sendMessage(new Message(MessageType.TEXT, "SERVER", "Welcome"));
-
             } catch (IOException e) {
                 e.printStackTrace();
             }
         }
     }
 
+    /* Client must send the initialization message under 1000 ms or the connection will be closed */
+    private String getNewClientName(Client client) {
+        ExecutorService executorService = Executors.newSingleThreadExecutor();
+        final Future<String> future = executorService.submit(new Callable<String>() {
+            @Override
+            public String call() throws Exception {
+                Message message = client.getMessage();
+                if (message.getMessageType() != MessageType.CLIENT_CONNECTED) return null;
+                return message.getSenderName();
+            }
+        });
+        executorService.shutdown();
+
+        try {
+            return future.get(1000, TimeUnit.MILLISECONDS);
+        } catch (InterruptedException | ExecutionException | TimeoutException e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
 }

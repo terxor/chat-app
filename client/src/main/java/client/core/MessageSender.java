@@ -18,14 +18,10 @@ public class MessageSender implements Runnable {
 
     @Override
     public void run() {
-        Scanner scanner = new Scanner(System.in);
         while (user.isConnected()) {
-            String messageString = scanner.nextLine();
-            sendMessage(new Message(
-                    MessageType.TEXT,
-                    user.getName(),
-                    messageString
-            ));
+            if (user.hasMessageToSend()) {
+                sendMessage(user.getMessageToSend());
+            }
         }
     }
 

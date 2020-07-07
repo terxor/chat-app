@@ -13,6 +13,7 @@ public class Client {
     private final ObjectOutputStream outputStream;
     private final ObjectInputStream inputStream;
     private final Socket socket;
+    private String name;
 
     Client (Socket socket, ObjectOutputStream outputStream, ObjectInputStream inputStream) {
         this.outputStream = outputStream;
@@ -43,5 +44,13 @@ public class Client {
 
     public boolean isConnected() {
         return socket.isConnected();
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
     }
 }
